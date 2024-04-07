@@ -6,10 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  setup_environment:
+  update_feed:
     runs-on: ubuntu-latest
-    outputs:
-      python-version: '3.x'
     steps:
       - uses: actions/checkout@v2
       
@@ -23,25 +21,16 @@ jobs:
         
       - name: Install dependencies
         run: pip install requests lxml beautifulsoup4 pytz tqdm
-
-  update_feed:
-    needs: setup_environment
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
+        
       - name: Update RSS feed to XML
         run: |
           mkdir -p docs
           python RSS_Horoscop_news.py
-
-  commit_and_push:
-    needs: update_feed
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
+          
       - name: Commit and push if changed
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add .
           git diff --quiet && git diff --staged --quiet || (git commit -m "Update RSS Feed" && git push)
+
