@@ -45,13 +45,11 @@ def construct_rss_feed(articles):
     title = etree.SubElement(channel, 'title')
     title.text = "Horoscop Zilnic – Horoscopul zilei de azi & Informatii Zodii"
 
-    atom_link = etree.SubElement(channel, '{http://www.w3.org/2005/Atom}link', href="https://www.horoscop.ro/feed/", rel="self", type="application/rss+xml")
-
     link = etree.SubElement(channel, 'link')
-    link.text = "https://www.horoscop.ro"
+    link.text = "https://spynews.ro/horoscop/"
 
     description = etree.SubElement(channel, 'description')
-    description.text = "Horoscop.ro - Urmărește zilnic horoscopul!"
+    description.text = "Urmărește zilnic horoscopul!"
 
     # Setăm lastBuildDate la data și ora curentă
     lastBuildDate = etree.SubElement(channel, 'lastBuildDate')
