@@ -5,7 +5,8 @@ import os
 from urllib.parse import unquote
 from datetime import datetime
 import pytz
-from tqdm import tqdm
+from tqdm import tqdm 
+import re
 
 
 def fetch_article_details(article_url):
@@ -14,23 +15,36 @@ def fetch_article_details(article_url):
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
             title = soup.find('div', class_='title-wrapper').h1.text
-            summary = soup.find(
-                'div', class_='autor-data').find_next_sibling().text
+            summary_element = soup.find('div', class_='autor-data')
+            summary = summary_element.find_next_sibling(
+                "p").text if summary_element else "Sumar indisponibil"
 
-            for unwanted_div in soup.find_all(['div', 'section'], class_=['banner-aside', 'banner banner-in-article', 'gallery-link-section']):
-                unwanted_div.decompose()
+            for unwanted in soup.find_all(['div', 'ul', 'section'], class_=['banner-aside', 'banner banner-in-article', 'gallery-link-section', 'bumbi', 'related-in-articol', 'ads-div', "__outstream", "linkuri-in-article", "ex-h6", "lista-linkuri-in-article"]):
+                unwanted.decompose()
 
             image_element = soup.find('div', class_='thumb').img
+            image_url = ""
             if image_element:
-                image_url = image_element['src']
-                if "https://img.spynews.ro/?u=" in image_url:
-                    image_url = image_url.split('u=')[-1].split('&')[0]
-                    image_url = unquote(image_url)
-                image_element['src'] = image_url
-                image_element['width'] = "720"
-                del image_element['style']
-            content = str(soup.find('section', class_='article-intro')
-                          ) + str(soup.find('div', class_='__content'))
+                image_src = image_element.get('src', '')
+                if "https://img.spynews.ro/?u=" in image_src:
+                    image_url = unquote(
+                        image_src.split('u=')[-1].split('&')[0])
+                else:
+                    image_url = image_src
+
+            content_parts = []
+
+            intro_section = soup.find('section', class_='article-intro')
+            if intro_section:
+                content_parts.append(str(intro_section))
+
+            content_divs = soup.find_all('div')
+            for div in content_divs:
+                if 'class' in div.attrs and div.attrs['class'] == ['__content']:
+                    content_parts.append(str(div))
+
+            content = ''.join(content_parts)
+            content = re.sub(r'<p>(<[^>]+>)*citește și:.*?</p>', '', content, flags=(re.DOTALL | re.IGNORECASE))
 
             return title, summary, image_url, content
     except Exception as e:
@@ -50,8 +64,9 @@ def construct_rss_feed(articles):
     rss = etree.Element('rss', nsmap=nsmap, version="2.0")
     channel = etree.SubElement(rss, 'channel')
 
+    # Adăugăm titlul de ansamblu, legătura atom, descrierea și alte detalii la channel
     title = etree.SubElement(channel, 'title')
-    title.text = "Horoscop Zilnic – Horoscopul zilei de azi & Informatii Zodii"
+    title.text = "Horoscop Zilnic - Horoscopul zilei de azi & Informatii Zodii"
 
     link = etree.SubElement(channel, 'link')
     link.text = "https://spynews.ro/horoscop/"
@@ -59,6 +74,7 @@ def construct_rss_feed(articles):
     description = etree.SubElement(channel, 'description')
     description.text = "Urmărește zilnic horoscopul!"
 
+    # Setăm lastBuildDate la data și ora curentă
     lastBuildDate = etree.SubElement(channel, 'lastBuildDate')
     now = datetime.now(pytz.utc)  # Folosim UTC pentru a fi consistent
     lastBuildDate.text = now.strftime('%a, %d %b %Y %H:%M:%S %z')
@@ -74,6 +90,7 @@ def construct_rss_feed(articles):
         channel, '{http://purl.org/rss/1.0/modules/syndication/}updateFrequency')
     updateFrequency.text = "1"
 
+    # Adăugăm articolele
     for article in articles:
         item = etree.SubElement(channel, 'item')
         item_title = etree.SubElement(item, 'title')
@@ -96,10 +113,10 @@ def main():
         articles = listing_column.find_all('a', class_='news-item')
 
         articles_data = []
-        for article in tqdm(articles, desc='Fetching article details', unit='article'):
+        # Utilizăm tqdm pentru a înfășura iterarea peste articole și a afișa un progress bar
+        for article in tqdm(articles, desc='Fetching article details', unit=' article', bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [ {elapsed} < {remaining}, {rate_fmt} {postfix} ]"):
             article_url = article['href']
-            title, summary, image_url, content = fetch_article_details(
-                article_url)
+            title, summary, image_url, content = fetch_article_details(article_url)
             if title:
                 articles_data.append({
                     'title': title,
@@ -110,6 +127,7 @@ def main():
                 })
 
         rss_content = construct_rss_feed(articles_data)
+
         os.makedirs('docs', exist_ok=True)
         with open('docs/horoscop_news.xml', 'wb') as file:
             file.write(rss_content)
