@@ -17,7 +17,7 @@ jobs:
           python-version: '3.x'
           
       - name: Install dependencies
-        run: pip install requests lxml beautifulsoup4 pytz
+        run: pip install requests lxml beautifulsoup4 pytz tqdm
         
       - name: Save RSS feed to XML
         run: |
