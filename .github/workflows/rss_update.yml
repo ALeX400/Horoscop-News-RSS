@@ -5,7 +5,36 @@ on:
     - cron: '0 */2 * * *'
   workflow_dispatch:
 
+
 jobs:
+  runner:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+          
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+        
+      - name: Install dependencies
+        run: pip install requests lxml beautifulsoup4 pytz tqdm
+        
+      - name: Save RSS feed to XML
+        run: |
+          mkdir -p docs
+          python RSS_Horoscop_news.py
+          
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update RSS Feed" && git push)
+
   save_feed:
     runs-on: ubuntu-latest
     steps:
@@ -33,3 +62,4 @@ jobs:
           git config --local user.name "GitHub Action"
           git add .
           git diff --quiet && git diff --staged --quiet || (git commit -m "Update RSS Feed" && git push)
+
